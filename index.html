@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>今天還能吃幾卡</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F3F2EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131714" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="今天還能吃幾卡">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root{ --paper:#F3F2EE; --ink:#1A1F1B; --ink-2:#4B5551; --accent:#1F5D45;
+         --surface:#fff; --line:#DCDCD2; }
+  @media (prefers-color-scheme: dark){
+    :root{ --paper:#131714; --ink:#ECEFEA; --ink-2:#A8B1AB; --accent:#6FBF9A;
+           --surface:#1B201D; --line:#2C332E; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:var(--paper);overflow:hidden}
+  body{font:15px/1.6 "Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;color:var(--ink)}
+  #app{display:block;width:100%;height:100%;border:0}
+  /* 沒有設定目標網址時才會看到這一頁 */
+  .setup{height:100%;display:flex;align-items:center;justify-content:center;padding:24px calc(16px + env(safe-area-inset-right)) 24px calc(16px + env(safe-area-inset-left))}
+  .box{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{font-size:12.5px;letter-spacing:.14em;color:var(--ink-2);margin:0 0 16px}
+  p{font-size:13.5px;color:var(--ink-2);margin:0 0 14px}
+  input{width:100%;padding:11px 12px;font:inherit;font-size:13.5px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
+  button{margin-top:12px;width:100%;padding:11px;font:inherit;font-weight:500;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+  .err{color:#A8362C;font-size:13px;margin-top:10px;display:none}
+  code{font-size:12px;word-break:break-all;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<script>
+(function(){
+  var LS = "kcalShell.target";
+
+  // 只接受這支 Apps Script web app 的網址。
+  // 這頁是公開的，不做白名單就等於做了一個「能嵌任何網站」的外殼給別人拿去釣魚。
+  function ok(u){
+    try{
+      var x = new URL(u);
+      return x.protocol === "https:" &&
+             x.hostname === "script.google.com" &&
+             x.pathname.indexOf("/macros/") === 0;
+    }catch(e){ return false; }
+  }
+
+  function fromHash(){
+    var h = location.hash.replace(/^#/, "");
+    if(!h) return "";
+    var m = /(?:^|&)u=([^&]+)/.exec(h);
+    var raw = m ? m[1] : h;
+    try{
+      // base64url → 一般 base64
+      var b = raw.replace(/-/g, "+").replace(/_/g, "/");
+      while(b.length % 4) b += "=";
+      return decodeURIComponent(escape(atob(b)));
+    }catch(e){ return decodeURIComponent(raw); }
+  }
+
+  function mount(url){
+    // 網址只留在這台裝置，換掉 hash 免得之後被人從網址列看到
+    try{ localStorage.setItem(LS, url); }catch(e){}
+    if(location.hash) history.replaceState(null, "", location.pathname + location.search);
+    var f = document.createElement("iframe");
+    f.id = "app";
+    f.src = url;
+    f.setAttribute("allow", "clipboard-write");
+    document.body.innerHTML = "";
+    document.body.appendChild(f);
+  }
+
+  function setup(){
+    document.body.innerHTML =
+      '<div class="setup"><div class="box">' +
+        '<h1>今天還能吃幾卡</h1>' +
+        '<p class="sub">CALORIE &amp; WATER DIARY</p>' +
+        '<p>第一次開啟，貼上你的 Apps Script 網址（<code>https://script.google.com/macros/s/…/exec</code>），之後這台裝置就會記住。</p>' +
+        '<input id="u" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">' +
+        '<button id="go">開始使用</button>' +
+        '<div class="err" id="err">網址不對 —— 必須是 script.google.com 的 /macros/ 網址。</div>' +
+      '</div></div>';
+    document.getElementById("go").onclick = function(){
+      var v = document.getElementById("u").value.trim();
+      if(ok(v)) mount(v); else document.getElementById("err").style.display = "block";
+    };
+  }
+
+  var target = fromHash();
+  if(!ok(target)){ try{ target = localStorage.getItem(LS) || ""; }catch(e){ target = ""; } }
+  if(ok(target)) mount(target); else setup();
+})();
+</script>
+</body>
+</html>
