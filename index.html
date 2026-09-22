@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" data-shell-version="v2">
+<html lang="zh-Hant" data-shell-version="v3">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -21,7 +21,8 @@
            --surface:#1B201D; --line:#2C332E; }
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;height:100%;background:var(--paper);overflow:hidden}
+  html{margin:0;padding:0;height:100%;height:100dvh;background:var(--paper);overflow:hidden}
+  body{margin:0;height:var(--shell-height,100dvh);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:var(--paper);overflow:hidden}
   body{font:15px/1.6 "Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;color:var(--ink)}
   #app{display:block;width:100%;height:100%;border:0}
   .updatebar{
@@ -34,7 +35,7 @@
   .updatebar.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
   .updatebar button{border:0;border-radius:999px;padding:6px 10px;background:var(--accent);color:#fff;font:inherit;font-weight:700;cursor:pointer}
   /* 沒有設定目標網址時才會看到這一頁 */
-  .setup{height:100%;display:flex;align-items:center;justify-content:center;padding:24px calc(16px + env(safe-area-inset-right)) 24px calc(16px + env(safe-area-inset-left))}
+  .setup{height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
   .box{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
   h1{font-size:19px;margin:0 0 4px}
   .sub{font-size:12.5px;letter-spacing:.14em;color:var(--ink-2);margin:0 0 16px}
@@ -49,8 +50,16 @@
 <script>
 (function(){
   var LS = "kcalShell.target";
-  var SHELL_VERSION = "v2";
-  var APP_VERSION = "32";
+  var SHELL_VERSION = "v3";
+  var APP_VERSION = "34";
+
+  function syncViewportHeight(){
+    var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty("--shell-height", Math.round(h) + "px");
+  }
+  syncViewportHeight();
+  if(window.visualViewport) window.visualViewport.addEventListener("resize", syncViewportHeight);
+  window.addEventListener("orientationchange", syncViewportHeight);
 
   // 只接受這支 Apps Script web app 的網址。
   // 這頁是公開的，不做白名單就等於做了一個「能嵌任何網站」的外殼給別人拿去釣魚。
