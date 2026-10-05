@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" data-shell-version="v18">
+<html lang="zh-Hant" data-shell-version="v19">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -50,8 +50,8 @@
 <script>
 (function(){
   var LS = "kcalShell.target";
-  var SHELL_VERSION = "v18";
-  var APP_VERSION = "52";
+  var SHELL_VERSION = "v19";
+  var APP_VERSION = "53";
 
   function syncViewportHeight(){
     var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
@@ -94,6 +94,7 @@
     try{
       var appUrl = new URL(url);
       appUrl.searchParams.set("__kcal_v", APP_VERSION);
+      appUrl.searchParams.set("__kcal_shell", SHELL_VERSION);
       f.src = appUrl.toString();
     }catch(e){ f.src = url; }
     f.setAttribute("allow", "clipboard-write");
