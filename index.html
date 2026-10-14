@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" data-shell-version="v34">
+<html lang="zh-Hant" data-shell-version="v35">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -34,6 +34,19 @@
   }
   .updatebar.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
   .updatebar button{border:0;border-radius:999px;padding:6px 10px;background:var(--accent);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  /* v35：iframe 載完前的等待畫面（v69 起資料一次到位，開頁會先空白約 2.6 秒） */
+  .boot{
+    position:fixed;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    background:var(--paper);color:var(--ink-2);pointer-events:none;transition:opacity .25s ease;
+  }
+  .boot.done{opacity:0}
+  .boot img{width:64px;height:64px;border-radius:16px}
+  .boot b{color:var(--ink);font-size:16px}
+  .boot span{display:flex;align-items:center;gap:8px;font-size:13px}
+  .boot em{font-style:normal}
+  .boot i{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:bootspin .8s linear infinite}
+  @keyframes bootspin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){ .boot i{animation-duration:2.4s} }
   /* 沒有設定目標網址時才會看到這一頁 */
   .setup{height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
   .box{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
@@ -51,7 +64,7 @@
 (function(){
   var LS = "kcalShell.target";
   var LS_USER = "kcalShell.user";
-  var SHELL_VERSION = "v34";
+  var SHELL_VERSION = "v35";
   var APP_VERSION = "69";
   var USER_RE = /^[一-鿿぀-ヿA-Za-z0-9_\- ]{1,20}$/;
 
@@ -124,6 +137,21 @@
       location.replace(next.toString());
     };
     document.body.appendChild(update);
+
+    // iframe 的 load 會等內層 Apps Script 頁面也載完才觸發，這時程式已經畫好第一個畫面。
+    // 等待畫面不擋點擊（pointer-events:none）；12 秒還沒好就改字，但不自己消失，免得露出空白。
+    var boot = document.createElement("div");
+    boot.className = "boot";
+    boot.setAttribute("role", "status");
+    boot.innerHTML = '<img src="icon-192.png" alt=""><b>今天還能吃幾卡</b><span><i></i><em>載入中…</em></span>';
+    var slow = setTimeout(function(){ boot.querySelector("em").textContent = "還在載入，網路可能比較慢…"; }, 12000);
+    f.addEventListener("load", function(){
+      clearTimeout(slow);
+      if(!boot.parentNode) return;
+      boot.classList.add("done");
+      setTimeout(function(){ if(boot.parentNode) boot.parentNode.removeChild(boot); }, 300);
+    });
+    document.body.appendChild(boot);
     document.body.appendChild(f);
 
     function checkUpdate(){
