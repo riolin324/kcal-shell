@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" data-shell-version="v33">
+<html lang="zh-Hant" data-shell-version="v34">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -50,8 +50,21 @@
 <script>
 (function(){
   var LS = "kcalShell.target";
-  var SHELL_VERSION = "v33";
-  var APP_VERSION = "68";
+  var LS_USER = "kcalShell.user";
+  var SHELL_VERSION = "v34";
+  var APP_VERSION = "69";
+  var USER_RE = /^[一-鿿぀-ヿA-Za-z0-9_\- ]{1,20}$/;
+
+  // v34：程式告訴外殼目前是誰（只收名字，不收任何紀錄），下次開頁帶 ?u=，
+  // 後端就能把資料直接嵌進頁面，省掉開場一趟往返。只接受 Apps Script 內容網域送來的訊息。
+  window.addEventListener("message", function(e){
+    if(!/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(e.origin)) return;
+    var d = e.data;
+    if(!d || d.type !== "kcal-user" || typeof d.user !== "string") return;
+    var u = d.user.trim();
+    if(!USER_RE.test(u)) return;
+    try{ localStorage.setItem(LS_USER, u); }catch(err){}
+  });
 
   function syncViewportHeight(){
     var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
@@ -95,6 +108,9 @@
       var appUrl = new URL(url);
       appUrl.searchParams.set("__kcal_v", APP_VERSION);
       appUrl.searchParams.set("__kcal_shell", SHELL_VERSION);
+      var lastUser = "";
+      try{ lastUser = localStorage.getItem(LS_USER) || ""; }catch(err){}
+      if(USER_RE.test(lastUser) && !appUrl.searchParams.has("u")) appUrl.searchParams.set("u", lastUser);
       f.src = appUrl.toString();
     }catch(e){ f.src = url; }
     f.setAttribute("allow", "clipboard-write");
