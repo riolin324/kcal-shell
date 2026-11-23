@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" data-shell-version="v43">
+<html lang="zh-Hant" data-shell-version="v44">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -64,9 +64,12 @@
 (function(){
   var LS = "kcalShell.target";
   var LS_USER = "kcalShell.user";
-  var SHELL_VERSION = "v43";
-  var APP_VERSION = "77";
+  var SHELL_VERSION = "v44";
+  var APP_VERSION = "78";
   var USER_RE = /^[一-鿿぀-ヿA-Za-z0-9_\- ]{1,20}$/;
+  // v44：主畫面捷徑（manifest shortcuts）開進來時帶 ?go=weight，轉給程式捲到體重卡。只認白名單裡的值
+  var GO = "";
+  try{ GO = new URLSearchParams(location.search).get("go") === "weight" ? "weight" : ""; }catch(e){}
 
   // v34：程式告訴外殼目前是誰（只收名字，不收任何紀錄），下次開頁帶 ?u=，
   // 後端就能把資料直接嵌進頁面，省掉開場一趟往返。只接受 Apps Script 內容網域送來的訊息。
@@ -114,7 +117,13 @@
   function mount(url){
     // 網址只留在這台裝置，換掉 hash 免得之後被人從網址列看到
     try{ localStorage.setItem(LS, url); }catch(e){}
-    if(location.hash) history.replaceState(null, "", location.pathname + location.search);
+    // ?go= 也一起拿掉：之後按「有新版可用 → 重新載入」不要再跳一次
+    try{
+      var here = new URL(location.href);
+      here.hash = "";
+      here.searchParams.delete("go");
+      if(location.hash || location.search !== here.search) history.replaceState(null, "", here.pathname + here.search);
+    }catch(e){}
     var f = document.createElement("iframe");
     f.id = "app";
     try{
@@ -124,6 +133,7 @@
       var lastUser = "";
       try{ lastUser = localStorage.getItem(LS_USER) || ""; }catch(err){}
       if(USER_RE.test(lastUser) && !appUrl.searchParams.has("u")) appUrl.searchParams.set("u", lastUser);
+      if(GO) appUrl.searchParams.set("go", GO);
       f.src = appUrl.toString();
     }catch(e){ f.src = url; }
     f.setAttribute("allow", "clipboard-write");
