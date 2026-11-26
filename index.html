@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" data-shell-version="v45">
+<html lang="zh-Hant" data-shell-version="v46">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -15,10 +15,10 @@
 <meta name="robots" content="noindex, nofollow">
 <style>
   :root{ --paper:#F3F2EE; --ink:#1A1F1B; --ink-2:#4B5551; --accent:#1F5D45;
-         --surface:#fff; --line:#DCDCD2; }
+         --surface:#fff; --line:#DCDCD2; --over:#A8362C; }
   @media (prefers-color-scheme: dark){
     :root{ --paper:#131714; --ink:#ECEFEA; --ink-2:#A8B1AB; --accent:#6FBF9A;
-           --surface:#1B201D; --line:#2C332E; }
+           --surface:#1B201D; --line:#2C332E; --over:#E4685C; }
   }
   *{box-sizing:border-box}
   html{margin:0;padding:0;height:100%;height:100dvh;background:var(--paper);overflow:hidden}
@@ -47,6 +47,14 @@
   .boot i{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:bootspin .8s linear infinite}
   @keyframes bootspin{to{transform:rotate(360deg)}}
   @media (prefers-reduced-motion: reduce){ .boot i{animation-duration:2.4s} }
+  /* v46：上次開啟時的快照（剩餘熱量、最近體重） */
+  .boot.has-snap img{width:48px;height:48px;border-radius:12px}
+  .snap{display:flex;flex-direction:column;align-items:center;gap:2px;margin:6px 0 4px;text-align:center}
+  .snapnum{color:var(--accent);font-size:44px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+  .snapnum.over{color:var(--over)}
+  .snapcap{color:var(--ink);font-size:14px}
+  .snapw{color:var(--ink);font-size:15px;margin-top:8px;font-variant-numeric:tabular-nums}
+  .snapat{color:var(--ink-2);font-size:12px;margin-top:6px}
   /* 沒有設定目標網址時才會看到這一頁 */
   .setup{height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
   .box{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
@@ -64,8 +72,9 @@
 (function(){
   var LS = "kcalShell.target";
   var LS_USER = "kcalShell.user";
-  var SHELL_VERSION = "v45";
-  var APP_VERSION = "79";
+  var LS_SNAP = "kcalShell.snap";
+  var SHELL_VERSION = "v46";
+  var APP_VERSION = "80";
   var USER_RE = /^[一-鿿぀-ヿA-Za-z0-9_\- ]{1,20}$/;
   // v44：主畫面捷徑（manifest shortcuts）開進來時帶 ?go=weight，轉給程式捲到體重卡。只認白名單裡的值
   var GO = "";
@@ -76,11 +85,53 @@
   window.addEventListener("message", function(e){
     if(!/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(e.origin)) return;
     var d = e.data;
+    if(d && d.type === "kcal-snap"){ var s = cleanSnap(d); if(s) try{ localStorage.setItem(LS_SNAP, JSON.stringify(s)); }catch(err){} return; }
     if(!d || d.type !== "kcal-user" || typeof d.user !== "string") return;
     var u = d.user.trim();
     if(!USER_RE.test(u)) return;
     try{ localStorage.setItem(LS_USER, u); }catch(err){}
   });
+
+  // v46：程式送來的「今天還可以吃幾卡＋最近體重」快照（Rio 2026-11-26 同意存在這台裝置）。
+  // 下次開頁時先秀在等待畫面上；只收數字與日期，格式不對整則丟掉。
+  var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function cleanSnap(d){
+    if(!d || typeof d.user !== "string" || !USER_RE.test(d.user.trim()) || typeof d.date !== "string" || !DATE_RE.test(d.date)) return null;
+    var left = Number(d.left), target = Number(d.target), at = Number(d.at);
+    if(!isFinite(left) || Math.abs(left) > 20000 || !isFinite(target) || target < 500 || target > 10000 || !isFinite(at) || at <= 0) return null;
+    var w = d.w == null ? null : Number(d.w);
+    if(w != null && !(isFinite(w) && w >= 25 && w <= 250)) return null;
+    var wDate = typeof d.wDate === "string" && DATE_RE.test(d.wDate) ? d.wDate : "";
+    return {user:d.user.trim(), date:d.date, left:Math.round(left), target:Math.round(target), w:w == null ? null : Math.round(w * 10) / 10, wDate:wDate, at:at};
+  }
+  function dayKey(t){
+    var x = new Date(t);
+    return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+  }
+  function shortDate(key){ var p = key.split("-"); return (+p[1]) + "/" + (+p[2]); }
+  function fmt(n){ return Math.round(n).toLocaleString("en-US"); }
+  // 回傳要放進等待畫面的節點；沒有可用的快照就回 null（等待畫面維持原樣）
+  function snapNode(user){
+    var s = null;
+    try{ s = cleanSnap(Object.assign({type:"kcal-snap"}, JSON.parse(localStorage.getItem(LS_SNAP) || "null"))); }catch(e){ s = null; }
+    var now = Date.now();
+    if(!s || s.user !== user || s.at > now + 600000 || now - s.at > 14 * 86400000) return null;
+    var today = dayKey(now), yday = dayKey(now - 86400000);
+    var box = document.createElement("div");
+    box.className = "snap";
+    function line(cls, text){ var n = document.createElement("div"); n.className = cls; n.textContent = text; box.appendChild(n); return n; }
+    if(s.date === today){
+      var over = s.left < 0;
+      line("snapnum" + (over ? " over" : ""), over ? "+" + fmt(-s.left) : fmt(s.left));
+      line("snapcap", over ? "大卡 · 超出額度" : "大卡 · 還可以吃");
+    } else {
+      line("snapcap", "每日目標 " + fmt(s.target) + " 大卡");
+    }
+    if(s.w != null) line("snapw", "體重 " + s.w.toFixed(1) + " kg" + (s.wDate ? "（" + (s.wDate === today ? "今天" : s.wDate === yday ? "昨天" : shortDate(s.wDate)) + "）" : ""));
+    var at = new Date(s.at), hm = String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0");
+    line("snapat", "上次開啟時的資料 · " + (dayKey(s.at) === today ? "今天 " : shortDate(dayKey(s.at)) + " ") + hm);
+    return box;
+  }
 
   function syncViewportHeight(){
     var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
@@ -154,6 +205,14 @@
     boot.className = "boot";
     boot.setAttribute("role", "status");
     boot.innerHTML = '<img src="icon-192.png" alt=""><b>今天還能吃幾卡</b><span><i></i><em>載入中…</em></span>';
+    var lastSnapUser = "";
+    try{ lastSnapUser = localStorage.getItem(LS_USER) || ""; }catch(err){}
+    var snap = USER_RE.test(lastSnapUser) ? snapNode(lastSnapUser) : null;
+    if(snap){
+      boot.classList.add("has-snap");
+      boot.insertBefore(snap, boot.querySelector("span"));
+      boot.querySelector("em").textContent = "同步最新資料…";
+    }
     var slow = setTimeout(function(){ boot.querySelector("em").textContent = "還在載入，網路可能比較慢…"; }, 12000);
     f.addEventListener("load", function(){
       clearTimeout(slow);
